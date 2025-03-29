@@ -1,15 +1,17 @@
 from flask import Flask, request, jsonify
 import requests
 import random
+import os
 
 app = Flask(__name__)
 
-# === Google API Key ===
-GOOGLE_API_KEY = "AIzaSyACEeojcbZgXusHmjI3uiHNsPoPwqDmveA"
+# 從環境變數取得 Google Maps API 金鑰
+GOOGLE_API_KEY = os.environ.get("AIzaSyACEeojcbZgXusHmjI3uiHNsPoPwqDmveA")
 
-# === Google 地點轉經緯度 ===
+
+# 🔍 Step 1: 透過地名取得經緯度
 def get_location_coordinates(location_name):
-    url = f"https://maps.googleapis.com/maps/api/geocode/json"
+    url = "https://maps.googleapis.com/maps/api/geocode/json"
     params = {
         "address": location_name,
         "key": GOOGLE_API_KEY,
@@ -26,12 +28,13 @@ def get_location_coordinates(location_name):
         print("Geocode failed:", data)
         return None, None
 
-# === Google Places 附近餐廳 ===
+
+# 🍱 Step 2: 用經緯度取得附近餐廳
 def get_nearby_restaurants(lat, lng):
     url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
     params = {
         "location": f"{lat},{lng}",
-        "radius": 1000,  # 公尺範圍
+        "radius": 1000,  # 公尺
         "type": "restaurant",
         "language": "zh-TW",
         "key": GOOGLE_API_KEY
@@ -43,7 +46,8 @@ def get_nearby_restaurants(lat, lng):
 
     return restaurants
 
-# === Slack Endpoint ===
+
+# 📡 Step 3: Slack 呼叫的 Endpoint
 @app.route("/ubereats", methods=["POST"])
 def ubereats():
     text = request.form.get("text", "")
@@ -70,6 +74,8 @@ def ubereats():
         "text": f"🍽️ <@{user_id}>，我推薦你吃：*{name}*！\n📍 {address}\n⭐ 評分：{rating}\n🔗 [看地圖]({link})"
     })
 
+
+# ✅ Render 測試首頁
 @app.route("/")
 def hello():
     return "Ubereats bot with Google Maps is running!"

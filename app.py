@@ -4,54 +4,75 @@ import random
 
 app = Flask(__name__)
 
-LATITUDE = 25.0478
-LONGITUDE = 121.5319
+# === Google API Key ===
+GOOGLE_API_KEY = "AIzaSyACEeojcbZgXusHmjI3uiHNsPoPwqDmveA"
 
-HEADERS = {
-    "accept": "application/json",
-    "user-agent": "UberEats/6.102.10001 (iPhone; iOS 14.4; Scale/2.00)"
-}
-
-def get_restaurants(lat, lng):
-    url = "https://www.ubereats.com/_p/api/getFeedV1?localeCode=zh-TW"
-    payload = {
-        "marketId": "",
-        "storeFrontId": None,
-        "userDeviceLatLng": {"latitude": lat, "longitude": lng},
-        "supportedEaterFeatures": [],
+# === Google 地點轉經緯度 ===
+def get_location_coordinates(location_name):
+    url = f"https://maps.googleapis.com/maps/api/geocode/json"
+    params = {
+        "address": location_name,
+        "key": GOOGLE_API_KEY,
+        "language": "zh-TW"
     }
 
-    try:
-        res = requests.post(url, json=payload, headers=HEADERS)
-        data = res.json()
-        items = data.get("data", {}).get("feedItems", [])
-        restaurants = [
-            item["store"]["title"]
-            for item in items
-            if item.get("type") == "store"
-        ]
-        return restaurants
-    except Exception as e:
-        print("Error fetching restaurants:", e)
-        return []
+    res = requests.get(url, params=params)
+    data = res.json()
 
+    if data["status"] == "OK":
+        location = data["results"][0]["geometry"]["location"]
+        return location["lat"], location["lng"]
+    else:
+        print("Geocode failed:", data)
+        return None, None
+
+# === Google Places 附近餐廳 ===
+def get_nearby_restaurants(lat, lng):
+    url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
+    params = {
+        "location": f"{lat},{lng}",
+        "radius": 1000,  # 公尺範圍
+        "type": "restaurant",
+        "language": "zh-TW",
+        "key": GOOGLE_API_KEY
+    }
+
+    res = requests.get(url, params=params)
+    data = res.json()
+    restaurants = data.get("results", [])
+
+    return restaurants
+
+# === Slack Endpoint ===
 @app.route("/ubereats", methods=["POST"])
 def ubereats():
-    text = request.form.get("text")
-    user_id = request.form.get("user_id")
+    text = request.form.get("text", "")
+    user_id = request.form.get("user_id", "")
 
-    restaurants = get_restaurants(LATITUDE, LONGITUDE)
+    if not text:
+        return jsonify({"text": "請輸入地點，例如 `/ubereats 台北101`"})
 
+    lat, lng = get_location_coordinates(text)
+    if lat is None:
+        return jsonify({"text": "❌ 找不到這個地點，請確認輸入的地名"})
+
+    restaurants = get_nearby_restaurants(lat, lng)
     if not restaurants:
         return jsonify({"text": "😓 找不到餐廳，請稍後再試"})
 
-    choice = random.choice(restaurants)
-    return jsonify({"text": f"🍽️ <@{user_id}>，我推薦你吃：*{choice}*"})
+    pick = random.choice(restaurants)
+    name = pick["name"]
+    address = pick.get("vicinity", "地址不明")
+    rating = pick.get("rating", "無評分")
+    link = f"https://www.google.com/maps/search/?api=1&query={name.replace(' ', '+')}"
 
+    return jsonify({
+        "text": f"🍽️ <@{user_id}>，我推薦你吃：*{name}*！\n📍 {address}\n⭐ 評分：{rating}\n🔗 [看地圖]({link})"
+    })
 
 @app.route("/")
 def hello():
-    return "Ubereats bot is running!"
+    return "Ubereats bot with Google Maps is running!"
 
 if __name__ == "__main__":
     app.run()

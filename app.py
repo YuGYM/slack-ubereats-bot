@@ -18,6 +18,8 @@ def get_location_coordinates(location_name):
 
     print("👉 使用的地名：", location_name)
     print("👉 使用的 API KEY（部分）：", GOOGLE_API_KEY[:8] + "******")
+    print("🧪 Geocode 請求網址：", res.url)
+
 
     res = requests.get(url, params=params)
     data = res.json()

@@ -56,29 +56,35 @@ def get_nearby_restaurants(lat, lng):
 # Slack 指令進入點
 @app.route("/ubereats", methods=["POST"])
 def ubereats():
-    text = request.form.get("text", "").strip()
-    user_id = request.form.get("user_id", "")
+    try:
+        text = request.form.get("text", "").strip()
+        user_id = request.form.get("user_id", "")
 
-    if not text:
-        return jsonify({"text": "請輸入地點，例如 `/ubereats 台北101`"})
+        if not text:
+            return jsonify({"text": "請輸入地點，例如 `/ubereats 台北101`"})
 
-    lat, lng = get_location_coordinates(text)
-    if lat is None:
-        return jsonify({"text": f"❌ 找不到「{text}」，請確認地點是否正確"})
+        lat, lng = get_location_coordinates(text)
+        if lat is None:
+            return jsonify({"text": f"❌ 找不到「{text}」，請確認地點是否正確"})
 
-    restaurants = get_nearby_restaurants(lat, lng)
-    if not restaurants:
-        return jsonify({"text": "😓 找不到附近餐廳，可能是地點太偏僻？"})
+        restaurants = get_nearby_restaurants(lat, lng)
+        if not restaurants:
+            return jsonify({"text": "😓 找不到附近餐廳，可能是地點太偏僻？"})
 
-    pick = random.choice(restaurants)
-    name = pick["name"]
-    address = pick.get("vicinity", "地址不明")
-    rating = pick.get("rating", "無評分")
-    link = f"https://www.google.com/maps/search/?api=1&query={name.replace(' ', '+')}"
+        pick = random.choice(restaurants)
+        name = pick["name"]
+        address = pick.get("vicinity", "地址不明")
+        rating = pick.get("rating", "無評分")
+        link = f"https://www.google.com/maps/search/?api=1&query={name.replace(' ', '+')}"
 
-    return jsonify({
-        "text": f"🍽️ <@{user_id}> 我推薦你吃：*{name}*\n📍 {address}\n⭐ 評分：{rating}\n🔗 [看地圖]({link})"
-    })
+        return jsonify({
+            "text": f"🍽️ <@{user_id}> 我推薦你吃：*{name}*\n📍 {address}\n⭐ 評分：{rating}\n🔗 [看地圖]({link})"
+        })
+
+    except Exception as e:
+        print("❗ 程式錯誤：", str(e))
+        return jsonify({"text": "⚠️ 程式錯誤，請稍後再試（log 中已輸出錯誤）"}), 500
+
 
 
 # 測試首頁

@@ -11,6 +11,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 def hello():
     return "✅ Ubereats bot with Google Maps is running!"
 
+
 def get_location_coordinates(location_name):
     url = "https://maps.googleapis.com/maps/api/geocode/json"
     params = {
@@ -19,22 +20,18 @@ def get_location_coordinates(location_name):
         "language": "zh-TW"
     }
 
-    print("🧪 版本標記：2025-03-30 評分與範圍限制版")
-    print("👉 使用的地名：", location_name)
+    print("🧪 版本：含圖片")
+    print("👉 查詢地點：", location_name)
 
     try:
         res = requests.get(url, params=params)
         data = res.json()
-        print("📦 Geocoding 回傳資料：", data)
+        print("📦 Geocoding 回傳：", data)
 
         if data.get("status") != "OK":
             return None, None
 
-        results = data.get("results")
-        if not results:
-            return None, None
-
-        location = results[0].get("geometry", {}).get("location")
+        location = data["results"][0].get("geometry", {}).get("location")
         if not location:
             return None, None
 
@@ -44,11 +41,12 @@ def get_location_coordinates(location_name):
         print("❗ Geocode 錯誤：", str(e))
         return None, None
 
+
 def get_nearby_restaurants(lat, lng):
     url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
     params = {
         "location": f"{lat},{lng}",
-        "radius": 5000,  # ✅ 設定搜尋範圍為 5 公里
+        "radius": 5000,
         "type": "restaurant",
         "language": "zh-TW",
         "key": GOOGLE_API_KEY
@@ -57,11 +55,12 @@ def get_nearby_restaurants(lat, lng):
     try:
         res = requests.get(url, params=params)
         data = res.json()
-        print("📦 Places 回傳資料：", data)
+        print("📦 Places 回傳：", data)
         return data.get("results", [])
     except Exception as e:
         print("❗ Places 錯誤：", str(e))
         return []
+
 
 @app.route("/ubereats", methods=["POST"])
 def ubereats():
@@ -87,7 +86,6 @@ def ubereats():
         if not restaurants:
             return jsonify({"text": "😓 找不到附近餐廳，可能是地點太偏僻？"})
 
-        # ✅ 篩選：有名稱、評分 ≥ 4.2
         filtered = [
             r for r in restaurants
             if r.get("name") and r.get("rating", 0) >= 4.2
@@ -104,14 +102,22 @@ def ubereats():
             name = pick.get("name", "未知店名")
             address = pick.get("vicinity", "地址不明")
             rating = pick.get("rating", "無評分")
-            query = f"{name} {address}".replace(" ", "+")
-            link = f"https://www.google.com/search?q=site%3Aubereats.com+{query}"
+
+            # ➤ 處理圖片
+            photo_ref = pick.get("photos", [{}])[0].get("photo_reference")
+            if photo_ref:
+                photo_url = f"https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference={photo_ref}&key={GOOGLE_API_KEY}"
+            else:
+                photo_url = "https://via.placeholder.com/400x300?text=No+Image"
+
+            # ➤ Google Maps 查詢連結
+            link = f"https://www.google.com/maps/search/?api=1&query={name.replace(' ', '+')}"
 
             messages.append(
-                f"*{i}. {name}*\n📍 {address}\n⭐ 評分：{rating}\n🔗 {link}"
+                f"*{i}. {name}*\n📍 {address}\n⭐ 評分：{rating}\n🔗 {link}\n🖼️ {photo_url}"
             )
 
-        reply = f"🍽️ <@{user_id}> 這是我推薦你在「{location_name}」附近（5公里內，評分4.2↑）的餐廳：\n\n" + "\n\n".join(messages)
+        reply = f"🍽️ <@{user_id}> 推薦你在「{location_name}」附近的餐廳（評分4.2↑）：\n\n" + "\n\n".join(messages)
 
         return jsonify({
             "response_type": "in_channel",
@@ -121,6 +127,7 @@ def ubereats():
     except Exception as e:
         print("❗ 主程式錯誤：", str(e))
         return jsonify({"text": "⚠️ 程式錯誤，請稍後再試"}), 500
+
 
 if __name__ == "__main__":
     app.run()

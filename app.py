@@ -5,11 +5,11 @@ import os
 
 app = Flask(__name__)
 
-# 從 Render 的環境變數中取得 API 金鑰
+# 讀取 Google Maps API 金鑰（從環境變數）
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 
 
-# 取得經緯度
+# ➤ 將地點文字轉換成經緯度
 def get_location_coordinates(location_name):
     url = "https://maps.googleapis.com/maps/api/geocode/json"
     params = {
@@ -20,7 +20,7 @@ def get_location_coordinates(location_name):
 
     print("👉 使用的地名：", location_name)
     print("👉 使用的 API KEY（部分）：", GOOGLE_API_KEY[:8] + "******")
-    
+
     res = requests.get(url, params=params)
     data = res.json()
 
@@ -34,7 +34,7 @@ def get_location_coordinates(location_name):
         return None, None
 
 
-# 取得附近餐廳
+# ➤ 取得地點附近的餐廳清單
 def get_nearby_restaurants(lat, lng):
     url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
     params = {
@@ -47,18 +47,21 @@ def get_nearby_restaurants(lat, lng):
 
     res = requests.get(url, params=params)
     data = res.json()
+
     print("📦 Places 回傳資料：", data)
-    
+
     restaurants = data.get("results", [])
     return restaurants
 
 
-# Slack 指令進入點
+# ➤ Slack Slash Command Endpoint
 @app.route("/ubereats", methods=["POST"])
 def ubereats():
     try:
         text = request.form.get("text", "").strip()
         user_id = request.form.get("user_id", "")
+
+        print(f"👤 來自 Slack 使用者 <@{user_id}> 查詢：{text}")
 
         if not text:
             return jsonify({"text": "請輸入地點，例如 `/ubereats 台北101`"})
@@ -72,7 +75,7 @@ def ubereats():
             return jsonify({"text": "😓 找不到附近餐廳，可能是地點太偏僻？"})
 
         pick = random.choice(restaurants)
-        name = pick["name"]
+        name = pick.get("name", "未知店名")
         address = pick.get("vicinity", "地址不明")
         rating = pick.get("rating", "無評分")
         link = f"https://www.google.com/maps/search/?api=1&query={name.replace(' ', '+')}"
@@ -86,8 +89,7 @@ def ubereats():
         return jsonify({"text": "⚠️ 程式錯誤，請稍後再試（log 中已輸出錯誤）"}), 500
 
 
-
-# 測試首頁
+# ➤ Render Home 頁面測試用
 @app.route("/")
 def hello():
     return "Ubereats bot with Google Maps is running!"

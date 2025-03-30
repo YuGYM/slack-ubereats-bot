@@ -7,7 +7,7 @@ app = Flask(__name__)
 
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 
-
+# ➤ 取得經緯度，帶完整錯誤處理
 def get_location_coordinates(location_name):
     url = "https://maps.googleapis.com/maps/api/geocode/json"
     params = {
@@ -17,31 +17,48 @@ def get_location_coordinates(location_name):
     }
 
     print("👉 使用的地名：", location_name)
-    print("👉 使用的 API KEY（部分）：", GOOGLE_API_KEY[:8] + "******")
-    print("🧪 Geocode 請求網址：", res.url)
+    print("👉 API KEY（部分）：", GOOGLE_API_KEY[:8] + "******")
 
-
-    res = requests.get(url, params=params)
-    data = res.json()
-
-    print("📦 Geocoding 回傳資料：", data)
-
-    # 完整防呆處理
     try:
-        if data.get("status") == "OK":
-            results = data.get("results")
-            if results and isinstance(results, list) and len(results) > 0:
-                geometry = results[0].get("geometry")
-                if geometry and "location" in geometry:
-                    location = geometry["location"]
-                    return location.get("lat"), location.get("lng")
+        res = requests.get(url, params=params)
+        data = res.json()
+
+        print("📦 Geocoding 回傳資料：", data)
+
+        if data.get("status") != "OK":
+            print("❌ Geocode status 不是 OK：", data.get("status"))
+            return None, None
+
+        results = data.get("results")
+        if not results or len(results) == 0:
+            print("❌ Geocode 沒有 results")
+            return None, None
+
+        geometry = results[0].get("geometry")
+        if not geometry:
+            print("❌ geometry 欄位為 None")
+            return None, None
+
+        location = geometry.get("location")
+        if not location:
+            print("❌ location 欄位為 None")
+            return None, None
+
+        lat = location.get("lat")
+        lng = location.get("lng")
+        if lat is None or lng is None:
+            print("❌ lat/lng 為 None")
+            return None, None
+
+        print(f"✅ 取得經緯度：lat={lat}, lng={lng}")
+        return lat, lng
+
     except Exception as e:
-        print("❗ Geocoding 解析錯誤：", str(e))
-
-    print("❌ Geocoding 無法取得有效位置")
-    return None, None
+        print("❗ Geocode 發生錯誤：", str(e))
+        return None, None
 
 
+# ➤ Google Places API 拿附近餐廳
 def get_nearby_restaurants(lat, lng):
     url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
     params = {
@@ -61,19 +78,20 @@ def get_nearby_restaurants(lat, lng):
     return restaurants
 
 
+# ➤ Slack Bot Entry Point
 @app.route("/ubereats", methods=["POST"])
 def ubereats():
     try:
         text = request.form.get("text", "").strip()
         user_id = request.form.get("user_id", "")
 
-        print(f"👤 來自 Slack 使用者 <@{user_id}> 查詢：{text}")
+        print(f"👤 使用者 <@{user_id}> 查詢：{text}")
 
         if not text:
             return jsonify({"text": "請輸入地點，例如 `/ubereats 台北101`"})
 
         lat, lng = get_location_coordinates(text)
-        if lat is None:
+        if lat is None or lng is None:
             return jsonify({"text": f"❌ 找不到「{text}」，請確認地點是否正確"})
 
         restaurants = get_nearby_restaurants(lat, lng)
@@ -91,8 +109,8 @@ def ubereats():
         })
 
     except Exception as e:
-        print("❗ 程式錯誤：", str(e))
-        return jsonify({"text": "⚠️ 程式錯誤，請稍後再試（log 中已輸出錯誤）"}), 500
+        print("❗ 主流程錯誤：", str(e))
+        return jsonify({"text": "⚠️ 程式錯誤，請稍後再試"}), 500
 
 
 @app.route("/")

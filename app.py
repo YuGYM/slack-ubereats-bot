@@ -6,7 +6,7 @@ import os
 app = Flask(__name__)
 
 # 從環境變數取得 Google Maps API 金鑰
-GOOGLE_API_KEY = os.environ.get("AIzaSyACEeojcbZgXusHmjI3uiHNsPoPwqDmveA")
+GOOGLE_API_KEY = os.environ.get("AIzaSyBDYHregIfpRvQz6C92vyRUy9tzr8N29Hw")
 
 
 # 🔍 Step 1: 透過地名取得經緯度

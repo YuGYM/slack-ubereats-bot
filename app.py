@@ -5,11 +5,9 @@ import os
 
 app = Flask(__name__)
 
-# 讀取 Google Maps API 金鑰（從環境變數）
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 
 
-# ➤ 將地點文字轉換成經緯度
 def get_location_coordinates(location_name):
     url = "https://maps.googleapis.com/maps/api/geocode/json"
     params = {
@@ -26,15 +24,17 @@ def get_location_coordinates(location_name):
 
     print("📦 Geocoding 回傳資料：", data)
 
-    if data["status"] == "OK":
-        location = data["results"][0]["geometry"]["location"]
-        return location["lat"], location["lng"]
-    else:
-        print("Geocode failed:", data)
-        return None, None
+    # 加入防呆機制
+    results = data.get("results")
+    if data.get("status") == "OK" and results and len(results) > 0:
+        location = results[0].get("geometry", {}).get("location")
+        if location:
+            return location.get("lat"), location.get("lng")
+
+    print("Geocode failed:", data)
+    return None, None
 
 
-# ➤ 取得地點附近的餐廳清單
 def get_nearby_restaurants(lat, lng):
     url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
     params = {
@@ -54,7 +54,6 @@ def get_nearby_restaurants(lat, lng):
     return restaurants
 
 
-# ➤ Slack Slash Command Endpoint
 @app.route("/ubereats", methods=["POST"])
 def ubereats():
     try:
@@ -89,7 +88,6 @@ def ubereats():
         return jsonify({"text": "⚠️ 程式錯誤，請稍後再試（log 中已輸出錯誤）"}), 500
 
 
-# ➤ Render Home 頁面測試用
 @app.route("/")
 def hello():
     return "Ubereats bot with Google Maps is running!"

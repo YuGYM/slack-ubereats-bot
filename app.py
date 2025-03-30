@@ -11,7 +11,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 def hello():
     return "✅ Ubereats bot with Google Maps is running!"
 
-# ➤ 將地名轉成經緯度
+
 def get_location_coordinates(location_name):
     url = "https://maps.googleapis.com/maps/api/geocode/json"
     params = {
@@ -20,13 +20,21 @@ def get_location_coordinates(location_name):
         "language": "zh-TW"
     }
 
-    print("🧪 版本標記：2025-03-30 最終防呆版")
+    print("🧪 版本標記：2025-03-30 最終修復版")
     print("👉 使用的地名：", location_name)
+    print("🌐 發送請求 URL：", url)
+    print("🧩 使用的 API KEY（部分）：", GOOGLE_API_KEY[:8] + "******")
 
     try:
         res = requests.get(url, params=params)
-        data = res.json()
-        print("📦 Geocoding 回傳資料：", data)
+        print("✅ Geocoding API 回應狀態碼：", res.status_code)
+
+        try:
+            data = res.json()
+            print("📦 Geocoding 回傳資料：", data)
+        except Exception as json_error:
+            print("❗ JSON parse 失敗：", str(json_error))
+            return None, None
 
         if data.get("status") != "OK":
             print("❌ Geocode status 非 OK：", data.get("status"))
@@ -49,7 +57,6 @@ def get_location_coordinates(location_name):
 
         lat = location.get("lat")
         lng = location.get("lng")
-
         print(f"✅ 經緯度：lat={lat}, lng={lng}")
         return lat, lng
 
@@ -57,7 +64,7 @@ def get_location_coordinates(location_name):
         print("❗ Geocode 發生錯誤：", str(e))
         return None, None
 
-# ➤ 查詢附近餐廳
+
 def get_nearby_restaurants(lat, lng):
     url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
     params = {
@@ -73,13 +80,12 @@ def get_nearby_restaurants(lat, lng):
         data = res.json()
         print("📦 Places 回傳資料：", data)
 
-        restaurants = data.get("results", [])
-        return restaurants
+        return data.get("results", [])
     except Exception as e:
         print("❗ Places 錯誤：", str(e))
         return []
 
-# ➤ Slack Slash Command 入口
+
 @app.route("/ubereats", methods=["POST"])
 def ubereats():
     try:
@@ -99,7 +105,6 @@ def ubereats():
         if not restaurants:
             return jsonify({"text": "😓 找不到附近餐廳，可能是地點太偏僻？"})
 
-        # 過濾掉沒有名稱的資料，避免取用 None
         valid_restaurants = [r for r in restaurants if r and r.get("name")]
         if not valid_restaurants:
             return jsonify({"text": "😓 找不到有效餐廳（沒有名稱），請稍後再試"})
@@ -115,8 +120,9 @@ def ubereats():
         })
 
     except Exception as e:
-        print("❗ 主流程錯誤：", str(e))
+        print("❗ 主程式錯誤：", str(e))
         return jsonify({"text": "⚠️ 程式錯誤，請稍後再試"}), 500
+
 
 if __name__ == "__main__":
     app.run()

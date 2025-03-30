@@ -24,14 +24,19 @@ def get_location_coordinates(location_name):
 
     print("📦 Geocoding 回傳資料：", data)
 
-    # 加入防呆機制
-    results = data.get("results")
-    if data.get("status") == "OK" and results and len(results) > 0:
-        location = results[0].get("geometry", {}).get("location")
-        if location:
-            return location.get("lat"), location.get("lng")
+    # 完整防呆處理
+    try:
+        if data.get("status") == "OK":
+            results = data.get("results")
+            if results and isinstance(results, list) and len(results) > 0:
+                geometry = results[0].get("geometry")
+                if geometry and "location" in geometry:
+                    location = geometry["location"]
+                    return location.get("lat"), location.get("lng")
+    except Exception as e:
+        print("❗ Geocoding 解析錯誤：", str(e))
 
-    print("Geocode failed:", data)
+    print("❌ Geocoding 無法取得有效位置")
     return None, None
 
 

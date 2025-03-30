@@ -122,7 +122,9 @@ def ubereats():
             name = pick.get("name", "未知店名")
             address = pick.get("vicinity", "地址不明")
             rating = pick.get("rating", "無評分")
-            link = f"https://www.google.com/maps/search/?api=1&query={name.replace(' ', '+')}"
+            query = f"{name} {address}".replace(" ", "+")
+            link = f"https://www.google.com/search?q=site%3Aubereats.com+{query}"
+
             messages.append(f"*{i}. {name}*\n📍 {address}\n⭐ 評分：{rating}\n🔗 {link}")
 
         reply = f"🍽️ <@{user_id}> 這是我推薦你在「{location_name}」附近的餐廳：\n\n" + "\n\n".join(messages)

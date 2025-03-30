@@ -20,12 +20,8 @@ def get_location_coordinates(location_name):
         "language": "zh-TW"
     }
 
-    print("🧪 版本標記：2025-03-30 最終修復版")
+    print("🧪 版本標記：2025-03-30 多間推薦版")
     print("👉 使用的地名：", location_name)
-    print("🌐 發送請求 URL：", url)
-    print("🧩 使用的 API KEY（部分）：", GOOGLE_API_KEY[:8] + "******")
-    print("🔐 讀到的 GOOGLE_API_KEY（部分）：", GOOGLE_API_KEY[:8] + "...")
-
 
     try:
         res = requests.get(url, params=params)
@@ -89,7 +85,6 @@ def get_nearby_restaurants(lat, lng):
 
 
 @app.route("/ubereats", methods=["POST"])
-@app.route("/ubereats", methods=["POST"])
 def ubereats():
     try:
         text = request.form.get("text", "").strip()
@@ -100,7 +95,6 @@ def ubereats():
         if not text:
             return jsonify({"text": "請輸入地點，例如 `/ubereats 台北101 3`"})
 
-        # ➤ 分離地點與數字
         parts = text.rsplit(" ", 1)
         location_name = parts[0]
         count = 1
@@ -108,12 +102,10 @@ def ubereats():
         if len(parts) == 2 and parts[1].isdigit():
             count = int(parts[1])
 
-        # ➤ 查詢經緯度
         lat, lng = get_location_coordinates(location_name)
         if lat is None or lng is None:
             return jsonify({"text": f"❌ 找不到「{location_name}」，請確認地點是否正確"})
 
-        # ➤ 查附近餐廳
         restaurants = get_nearby_restaurants(lat, lng)
         if not restaurants:
             return jsonify({"text": "😓 找不到附近餐廳，可能是地點太偏僻？"})
@@ -122,7 +114,6 @@ def ubereats():
         if not valid_restaurants:
             return jsonify({"text": "😓 找不到有效餐廳（沒有名稱），請稍後再試"})
 
-        # ➤ 隨機取 N 間
         random.shuffle(valid_restaurants)
         picks = valid_restaurants[:min(count, len(valid_restaurants))]
 
@@ -132,11 +123,14 @@ def ubereats():
             address = pick.get("vicinity", "地址不明")
             rating = pick.get("rating", "無評分")
             link = f"https://www.google.com/maps/search/?api=1&query={name.replace(' ', '+')}"
-            messages.append(f"*{i}. {name}*\n📍 {address}\n⭐ 評分：{rating}\n🔗 <{link}>\n")
+            messages.append(f"*{i}. {name}*\n📍 {address}\n⭐ 評分：{rating}\n🔗 {link}")
 
-        reply = f"🍽️ <@{user_id}> 這是我推薦你在「{location_name}」附近的餐廳：\n\n" + "\n".join(messages)
+        reply = f"🍽️ <@{user_id}> 這是我推薦你在「{location_name}」附近的餐廳：\n\n" + "\n\n".join(messages)
 
-        return jsonify({"text": reply})
+        return jsonify({
+            "response_type": "in_channel",  # Slack 中讓大家都看到
+            "text": reply
+        })
 
     except Exception as e:
         print("❗ 主程式錯誤：", str(e))
